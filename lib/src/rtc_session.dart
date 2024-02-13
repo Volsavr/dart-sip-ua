@@ -320,7 +320,7 @@ class RTCSession extends EventManager implements Owner {
       requestParams['from_display_name'] = options['from_display_name'] ?? '';
       requestParams['from_uri'] = URI.parse(options['from_uri']);
       extraHeaders
-          .add('P-Preferred-Identity: ${_ua.configuration.uri.toString()}');
+        .add('P-Preferred-Identity: ${_ua.configuration.uri.toString()}');
     }
 
     if (anonymous) {
