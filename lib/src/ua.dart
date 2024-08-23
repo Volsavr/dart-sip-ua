@@ -884,8 +884,8 @@ class UA extends EventManager {
     String transport = _configuration.transportType?.name ?? 'WS';
 
     //Override transport from socket
-    if (transport == 'WS' && _socketTransport != null) {
-      transport = _socketTransport!.via_transport;
+    if(transport == 'WS' && _socketTransport != null){
+       transport = _socketTransport!.via_transport;
     }
 
     // Via Host.
