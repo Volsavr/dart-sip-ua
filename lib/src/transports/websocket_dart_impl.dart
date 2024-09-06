@@ -36,12 +36,12 @@ class SIPUAWebSocketImpl {
       onOpen?.call();
       _socket!.listen((dynamic data) {
         onMessage?.call(data);
-      },onError: () {
-        logger.i('websocket error detected');
+      },onError: (Object error) {
+        logger.i('websocket error detected: $error');
       }, onDone: () {
         logger.i('websocket closed');
         onClose?.call(_socket!.closeCode, _socket!.closeReason);
-      });
+      }, cancelOnError: true);
     } catch (e) {
       onClose?.call(500, e.toString());
     }
