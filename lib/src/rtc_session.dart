@@ -1586,6 +1586,7 @@ class RTCSession extends EventManager implements Owner {
   }
 
   void _iceRestart() async {
+    logger.d('ICE restarting');
     Map<String, dynamic> offerConstraints = _rtcOfferConstraints ??
         <String, dynamic>{
           'mandatory': <String, dynamic>{},
@@ -1612,6 +1613,8 @@ class RTCSession extends EventManager implements Owner {
       Map<String, dynamic> rtcConstraints) async {
     _connection = await createPeerConnection(pcConfig, rtcConstraints);
     _connection!.onIceConnectionState = (RTCIceConnectionState state) {
+      logger.d('onIceConnectionState : ${state.toString()}');
+
       // TODO(cloudwebrtc): Do more with different states.
       if (state == RTCIceConnectionState.RTCIceConnectionStateFailed) {
         terminate(<String, dynamic>{
