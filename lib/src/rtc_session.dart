@@ -1627,6 +1627,7 @@ class RTCSession extends EventManager implements Owner {
   }
 
   void _iceRestart() async {
+    logger.d('ICE restarting');
     Map<String, dynamic> offerConstraints = _rtcOfferConstraints ??
         <String, dynamic>{
           'mandatory': <String, dynamic>{},
@@ -1647,6 +1648,8 @@ class RTCSession extends EventManager implements Owner {
         _iceDisconnectTimer?.cancel();
         return;
       }
+
+      logger.d('onIceConnectionState : ${state.toString()}');
 
       if (state == RTCIceConnectionState.RTCIceConnectionStateFailed) {
         logger.e('ICE Connection State Failed.');
