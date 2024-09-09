@@ -809,6 +809,9 @@ class WebSocketSettings {
   /// Otherwise the used protocol will be used (for example WS for ws://
   /// or WSS for wss://, based on the given web socket URL).
   String? transport_scheme;
+
+  /// The interval to send ping message to server.
+  Duration? pingInterval;
 }
 
 class TcpSocketSettings {
@@ -898,6 +901,8 @@ class UaSettings {
 
   /// Min interval between recovery connection, default 2 sec
   int connectionRecoveryMinInterval = 2;
+
+  Duration webSocketPingInterval = webSocketSettings.pingInterval;
 
   bool terminateOnMediaPortZero = false;
 

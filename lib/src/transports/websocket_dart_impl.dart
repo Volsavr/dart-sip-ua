@@ -33,6 +33,9 @@ class SIPUAWebSocketImpl {
             protocols: protocols, headers: webSocketSettings.extraHeaders);
       }
 
+      //set ping interval
+      _socket?.pingInterval = webSocketSettings.pingInterval;
+
       onOpen?.call();
       _socket!.listen((dynamic data) {
         onMessage?.call(data);
