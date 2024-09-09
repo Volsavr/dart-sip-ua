@@ -803,8 +803,6 @@ class UaSettings {
   /// Min interval between recovery connection, default 2 sec
   int connectionRecoveryMinInterval = 2;
 
-  Duration webSocketPingInterval = webSocketSettings.pingInterval;
-
   bool terminateOnMediaPortZero = false;
 
   /// Sip Message Delay (in millisecond) (default 0).
