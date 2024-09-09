@@ -930,8 +930,7 @@ class UaSettings {
 
   /// Min interval between recovery connection, default 2 sec
   int connectionRecoveryMinInterval = 2;
-
-
+  
   /// Allows to write advanced call statistics in the log after the call ends
   bool logCallStatistics = false;
 
