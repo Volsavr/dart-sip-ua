@@ -1708,9 +1708,11 @@ class RTCSession extends EventManager implements Owner {
       }
     };
 
+
     bool hasCandidate = false;
     _connection!.onIceCandidate = (RTCIceCandidate candidate) {
       if (candidate != null) {
+        logger.d('ice candidate: "${candidate.candidate}"');
         emit(EventIceCandidate(candidate, ready));
         if (!hasCandidate) {
           hasCandidate = true;
@@ -1721,7 +1723,10 @@ class RTCSession extends EventManager implements Owner {
            * initiating a call to answer the call waiting will be unacceptable.
            */
           if (ua.configuration.ice_gathering_timeout != 0) {
-            setTimeout(() => ready(), ua.configuration.ice_gathering_timeout);
+            setTimeout(() {
+              logger.d('ice gathering timeout (${ua.configuration.ice_gathering_timeout}) exceeded');
+              ready();
+            }, ua.configuration.ice_gathering_timeout);
           }
         }
       }
