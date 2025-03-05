@@ -181,6 +181,7 @@ class SIPUAHelper extends EventManager {
     _settings.dtmf_mode = uaSettings.dtmfMode;
     _settings.session_timers = uaSettings.sessionTimers;
     _settings.ice_gathering_timeout = uaSettings.iceGatheringTimeout;
+    _settings.ice_srflx_candidate_policy = uaSettings.iceSrflxCandidatePolicy;
     _settings.session_timers_refresh_method =
         uaSettings.sessionTimersRefreshMethod;
     _settings.instance_id = uaSettings.instanceId;
@@ -951,6 +952,9 @@ class UaSettings {
   /// trying to connect, so that they're already available for inspection
   /// when RTCPeerConnection.setLocalDescription() is called.
   int iceCandidatePoolSize = 0;
+
+  /// if enabled ice gathering process terminates after receiving srflx candidate
+  bool iceSrflxCandidatePolicy = false;
 
   /// Controls which kind of messages are to be sent to keep a SIP session
   /// alive.

@@ -1826,8 +1826,18 @@ class RTCSession extends EventManager implements Owner {
     bool hasCandidate = false;
     _connection!.onIceCandidate = (RTCIceCandidate candidate) {
       if (candidate != null) {
-        logger.d('ice candidate: "${candidate.candidate}"');
+        String candidateContent = candidate.candidate ?? '';
+        logger.d('ice candidate: "$candidateContent"');
+
+        //notify about candidate
         emit(EventIceCandidate(candidate, ready));
+
+        //check ice srflx candidate policy
+        if(ua.configuration.ice_srflx_candidate_policy &&
+            candidateContent.contains("srflx")){
+          ready();
+        }
+
         if (!hasCandidate) {
           hasCandidate = true;
           /**

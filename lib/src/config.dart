@@ -63,6 +63,7 @@ class Settings {
 
   /// ICE Gathering Timeout (in millisecond).
   int ice_gathering_timeout = 500;
+  bool ice_srflx_candidate_policy = false;
 
   bool terminateOnAudioMediaPortZero = false;
 
@@ -255,6 +256,9 @@ class Checks {
     },
     'ice_gathering_timeout': (Settings src, Settings? dst) {
       dst!.ice_gathering_timeout = src.ice_gathering_timeout;
+    },
+    'ice_srflx_candidate_policy': (Settings src, Settings? dst) {
+      dst!.ice_srflx_candidate_policy = src.ice_srflx_candidate_policy;
     }
   };
 }
