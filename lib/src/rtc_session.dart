@@ -3521,6 +3521,7 @@ class RTCSession extends EventManager implements Owner {
       }
 
       logger.d(receiverStat);
+
     } catch (e) {
       return;
     }
