@@ -65,6 +65,9 @@ class Settings {
   int ice_gathering_timeout = 500;
   bool ice_srflx_candidate_policy = false;
 
+  /// Call statistics in the log
+  bool log_call_statistics = false;
+
   bool terminateOnAudioMediaPortZero = false;
 
   /// Sip Message Delay (in millisecond) ( default 0 ).
@@ -259,6 +262,9 @@ class Checks {
     },
     'ice_srflx_candidate_policy': (Settings src, Settings? dst) {
       dst!.ice_srflx_candidate_policy = src.ice_srflx_candidate_policy;
+    },
+    'log_call_statistics': (Settings src, Settings? dst) {
+      dst!.log_call_statistics = src.log_call_statistics;
     }
   };
 }
