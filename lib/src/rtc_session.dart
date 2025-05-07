@@ -3512,6 +3512,7 @@ class RTCSession extends EventManager implements Owner {
 
       String receiverStat = 'Receiver stats: \n';
 
+
       for (StatsReport s in receiverStats) {
         receiverStat += ' ${s.timestamp} ${s.id} ${s.type}\n';
         s.values.forEach((key, value) {
@@ -3521,7 +3522,6 @@ class RTCSession extends EventManager implements Owner {
       }
 
       logger.d(receiverStat);
-
     } catch (e) {
       return;
     }
