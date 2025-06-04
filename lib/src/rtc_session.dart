@@ -113,6 +113,11 @@ class RTCSession extends EventManager implements Owner {
   Map<String, dynamic>? _rtcOfferConstraints;
   Map<String, dynamic>? _rtcAnswerConstraints;
 
+  //Note: Temporal workaround for voiceOnly calls to check fact that current options handling should be refactored
+  // because currently app sends VideoUpgradeReinvite for voice only calls
+  // and sometimes it leads to exception: "NoSuchMethodError: Class 'InitialOutgoingInviteRequest' has no instance method 'reply'"
+  bool _initialVideoConstraints = false;
+
   // Local MediaStream.
   MediaStream? _localMediaStream;
   bool _localMediaStreamLocallyGenerated = false;
@@ -262,6 +267,9 @@ class RTCSession extends EventManager implements Owner {
         options['rtcAnswerConstraints'] ?? <String, dynamic>{};
     data = options['data'] ?? data;
     data?['video'] = !(options['mediaConstraints']['video'] == false);
+
+    //save initial video constraints
+    _initialVideoConstraints = mediaConstraints['video'];
 
     // Check target.
     if (target == null) {
@@ -489,6 +497,9 @@ class RTCSession extends EventManager implements Owner {
 
     _rtcAnswerConstraints = rtcAnswerConstraints;
     _rtcOfferConstraints = options['rtcOfferConstraints'] ?? null;
+
+    //save initial video constraints
+    _initialVideoConstraints = mediaConstraints['video'] ?? false;
 
     data = options['data'] ?? data;
 
@@ -1184,9 +1195,11 @@ class RTCSession extends EventManager implements Owner {
 
     bool? upgradeToVideo;
     try {
-      upgradeToVideo = (options['mediaConstraints']?['video'] != false ||
-              options['mediaConstraints']?['mandatory']?['video'] != null) &&
-          rtcOfferConstraints?['offerToReceiveVideo'] == null;
+      if(_initialVideoConstraints) {
+        upgradeToVideo = (options['mediaConstraints']?['video'] != false ||
+            options['mediaConstraints']?['mandatory']?['video'] != null) &&
+            rtcOfferConstraints?['offerToReceiveVideo'] == null;
+      }
     } catch (e) {
       logger.w('Failed to determine upgrade to video: $e');
     }
