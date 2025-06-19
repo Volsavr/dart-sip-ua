@@ -1680,7 +1680,7 @@ class RTCSession extends EventManager implements Owner {
       logger.d('onIceConnectionState : ${state.toString()}');
 
       if (state == RTCIceConnectionState.RTCIceConnectionStateFailed) {
-        logger.e('ICE Connection State Failed.');
+        logger.e('ICE Connection State: $state.');
         _iceDisconnectTimer?.cancel();
         terminate(<String, dynamic>{
           'cause': DartSIP_C.CausesType.RTP_TIMEOUT,
@@ -1689,7 +1689,7 @@ class RTCSession extends EventManager implements Owner {
         });
       } else if (state ==
           RTCIceConnectionState.RTCIceConnectionStateDisconnected) {
-        logger.w('ICE Connection State Disconnected.');
+        logger.w('ICE Connection State: $state.');
         if (_iceDisconnectTimer == null && !_isAttemptingIceRestart) {
           logger.i('Starting ICE disconnect timer...');
           _iceDisconnectTimer = Timer(const Duration(seconds: 20), () {
@@ -1717,15 +1717,15 @@ class RTCSession extends EventManager implements Owner {
         // If connection recovers, cancel timer and reset flag
         if (_iceDisconnectTimer != null || _isAttemptingIceRestart) {
           logger.i(
-              'ICE Connection State Connected/Completed. Canceling timer/resetting flag.');
+              'ICE Connection State: $state. Canceling timer/resetting flag.');
           _iceDisconnectTimer?.cancel();
           _isAttemptingIceRestart = false;
         } else {
-          logger.i('ICE Connection State Connected/Completed.');
+          logger.i('ICE Connection State: $state.');
         }
       } else if (state == RTCIceConnectionState.RTCIceConnectionStateClosed) {
         // Connection closed locally, usually via _connection.close() called by terminate()
-        logger.i('ICE Connection State Closed.'); // Use logger.i
+        logger.i('ICE Connection State: $state.'); // Use logger.i
         _iceDisconnectTimer?.cancel(); // Ensure timer is cancelled
         // Ensure *SIP* session state reflects closure if not already set by terminate()
         if (_state != RtcSessionState.terminated &&
@@ -1739,9 +1739,9 @@ class RTCSession extends EventManager implements Owner {
           });
         }
       } else if (state == RTCIceConnectionState.RTCIceConnectionStateChecking) {
-        logger.d('ICE Connection State Checking...'); // Use logger.d
+        logger.d('ICE Connection State: $state...'); // Use logger.d
       } else if (state == RTCIceConnectionState.RTCIceConnectionStateNew) {
-        logger.d('ICE Connection State New.'); // Use logger.d
+        logger.d('ICE Connection State: $state.'); // Use logger.d
       }
     };
     // In future versions, unified-plan will be used by default

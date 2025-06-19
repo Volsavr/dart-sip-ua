@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:sip_ua/src/transactions/update_client.dart';
+
 import 'config.dart' as config;
 import 'config.dart';
 import 'constants.dart' as DartSIP_C;
@@ -987,6 +989,13 @@ class UA extends EventManager {
           break;
         case SipMethod.ACK:
           // Just in case ;-).
+          break;
+        case SipMethod.UPDATE:
+          UpdateClientTransaction? transaction = _transactions
+              .getTransaction(UpdateClientTransaction, message.via_branch!);
+          if (transaction != null) {
+            transaction.receiveResponse(message.status_code, message);
+          }
           break;
         default:
           NonInviteClientTransaction? transaction = _transactions
