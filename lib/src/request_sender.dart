@@ -1,3 +1,5 @@
+import 'package:sip_ua/src/transactions/update_client.dart';
+
 import 'constants.dart';
 import 'data.dart';
 import 'digest_authentication.dart';
@@ -65,12 +67,21 @@ class RequestSender {
         clientTransaction = AckClientTransaction(
             _ua, _ua.socketTransport!, _request!, handlers);
         break;
+      case SipMethod.UPDATE:
+        clientTransaction = UpdateClientTransaction(
+            _ua, _ua.socketTransport!, _request!, handlers);
+        break;
       default:
         clientTransaction = NonInviteClientTransaction(
             _ua, _ua.socketTransport!, _request!, handlers);
     }
 
+    logger.d('transaction created for request with method: $_method');
+
     clientTransaction?.send();
+
+    logger.d('transaction sent: $_method');
+
   }
 
   /**
