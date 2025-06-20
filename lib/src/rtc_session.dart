@@ -3128,6 +3128,7 @@ class RTCSession extends EventManager implements Owner {
         onFailed(event.response);
       });
       handlers.on(EventOnTransactionAborted(), (EventOnTransactionAborted event) {
+        logger.e('update transaction aborted, session timer reset');
         // Handle Session Timers.
         _handleSessionTimersWithoutConfiguration();
       });
