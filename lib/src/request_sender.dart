@@ -51,6 +51,9 @@ class RequestSender {
     handlers.on(EventOnTransportError(), (EventOnTransportError event) {
       _eventHandlers.emit(event);
     });
+    handlers.on(EventOnTransactionAborted(), (EventOnTransactionAborted event) {
+      _eventHandlers.emit(event);
+    });
     handlers.on(EventOnAuthenticated(), (EventOnAuthenticated event) {
       _eventHandlers.emit(event);
     });
