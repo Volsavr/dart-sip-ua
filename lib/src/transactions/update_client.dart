@@ -55,7 +55,7 @@ class UpdateClientTransaction extends TransactionBase {
         onTransportError();
       }
       else{
-        logger.d('reschedule transaction (${request?.method}, $id) in 2 sec');
+        logger.d('reschedule transaction (${request?.method}, $id) in 4 sec');
         R = setTimeout(() {
           timer_R();
         }, Timers.TIMER_R);
