@@ -166,6 +166,10 @@ class EventOnErrorResponse extends EventType {
   IncomingMessage? response;
 }
 
+class EventOnTransactionAborted extends EventType {
+  EventOnTransactionAborted();
+}
+
 class EventOnNewSubscribe extends EventType {
   EventOnNewSubscribe({this.request});
   IncomingRequest? request;
