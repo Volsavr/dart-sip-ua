@@ -82,6 +82,9 @@ class UpdateClientTransaction extends TransactionBase {
         logger.d('report transport issue');
         _eventHandlers.emit(EventOnTransportError());
       }
+      else{
+        _eventHandlers.emit(EventOnTransactionAborted());
+      }
     }
     else{
       logger.d('reschedule transaction (${request?.method}, $id) in 2 sec');
@@ -94,7 +97,7 @@ class UpdateClientTransaction extends TransactionBase {
   void timer_F() {
     logger.d('Timer F expired for transaction (${request?.method}, $id), resubmitByTransportIssue: $resubmitByTransportIssue');
     if(resubmitByTransportIssue) {
-      logger.d('transaction (${request?.method}, $id) fail, request timeout');
+      logger.d('deleting transaction (${request?.method}, $id)');
       stateChanged(TransactionState.TERMINATED);
       ua.destroyTransaction(this);
 
@@ -102,6 +105,9 @@ class UpdateClientTransaction extends TransactionBase {
       if(request?.method != SipMethod.UPDATE) {
         logger.d('report transport issue');
         _eventHandlers.emit(EventOnRequestTimeout());
+      }
+      else{
+        _eventHandlers.emit(EventOnTransactionAborted());
       }
     }else{
       logger.d('reschedule transaction (${request?.method}, $id)');

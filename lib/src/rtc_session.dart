@@ -3128,6 +3128,10 @@ class RTCSession extends EventManager implements Owner {
       handlers.on(EventOnErrorResponse(), (EventOnErrorResponse event) {
         onFailed(event.response);
       });
+      handlers.on(EventOnTransactionAborted(), (EventOnTransactionAborted event) {
+        // Handle Session Timers.
+        _handleSessionTimersWithoutConfiguration();
+      });
       handlers.on(EventOnTransportError(), (EventOnTransportError event) {
         onTransportError(); // Do nothing because session ends.
       });
@@ -3316,6 +3320,14 @@ class RTCSession extends EventManager implements Owner {
     }
 
     _sessionTimers.refresher = session_expires_refresher == 'uac';
+    _runSessionTimer();
+  }
+
+  void _handleSessionTimersWithoutConfiguration() {
+    if (!_sessionTimers.enabled) {
+      return;
+    }
+
     _runSessionTimer();
   }
 
