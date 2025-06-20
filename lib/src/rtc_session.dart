@@ -3328,11 +3328,13 @@ class RTCSession extends EventManager implements Owner {
     // I'm the refresher.
     if (_sessionTimers.refresher) {
       _sessionTimers.timer = setTimeout(() {
+        logger.d('runSessionTimer() with refresher | session state: $state');
+
         if (_state == RtcSessionState.terminated) {
           return;
         }
 
-        logger.d('runSessionTimer() | sending session refresh request');
+        logger.d('runSessionTimer() with refresher | sending session refresh request');
 
         if (_sessionTimers.refreshMethod == SipMethod.UPDATE) {
           _sendUpdate();
@@ -3344,6 +3346,8 @@ class RTCSession extends EventManager implements Owner {
     // I'm not the refresher.
     else {
       _sessionTimers.timer = setTimeout(() {
+        logger.d('runSessionTimer() | session state: $state');
+
         if (_state == RtcSessionState.terminated) {
           return;
         }
