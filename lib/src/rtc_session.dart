@@ -3346,6 +3346,8 @@ class RTCSession extends EventManager implements Owner {
     // I'm not the refresher.
     else {
       _sessionTimers.timer = setTimeout(() {
+        logger.d('runSessionTimer() | session state: $state');
+
         if (_state == RtcSessionState.terminated) {
           return;
         }
