@@ -40,6 +40,9 @@ class DialogRequestSender {
     handlers.on(EventOnTransportError(), (EventOnTransportError value) {
       _eventHandlers.emit(EventOnTransportError());
     });
+    handlers.on(EventOnTransactionAborted(), (EventOnTransactionAborted event) {
+      _eventHandlers.emit(event);
+    });
     handlers.on(EventOnAuthenticated(), (EventOnAuthenticated event) {
       _eventHandlers.emit(EventOnAuthenticated(request: event.request));
     });
