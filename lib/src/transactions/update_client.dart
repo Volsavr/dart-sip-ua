@@ -83,11 +83,12 @@ class UpdateClientTransaction extends TransactionBase {
         _eventHandlers.emit(EventOnTransportError());
       }
       else{
+        logger.d('report transaction aborting');
         _eventHandlers.emit(EventOnTransactionAborted());
       }
     }
     else{
-      logger.d('reschedule transaction (${request?.method}, $id) in 2 sec');
+      logger.d('reschedule transaction (${request?.method}, $id) in 4 sec');
       R = setTimeout(() {
         timer_R();
       }, Timers.TIMER_R);
@@ -96,6 +97,9 @@ class UpdateClientTransaction extends TransactionBase {
 
   void timer_F() {
     logger.d('Timer F expired for transaction (${request?.method}, $id), resubmitByTransportIssue: $resubmitByTransportIssue');
+    clearTimeout(F);
+    clearTimeout(K);
+    clearTimeout(R);
     if(resubmitByTransportIssue) {
       logger.d('deleting transaction (${request?.method}, $id)');
       stateChanged(TransactionState.TERMINATED);
@@ -107,6 +111,7 @@ class UpdateClientTransaction extends TransactionBase {
         _eventHandlers.emit(EventOnRequestTimeout());
       }
       else{
+        logger.d('report transaction aborting');
         _eventHandlers.emit(EventOnTransactionAborted());
       }
     }else{
@@ -129,7 +134,7 @@ class UpdateClientTransaction extends TransactionBase {
   @override
   void receiveResponse(int status_code, IncomingMessage response,
       [void Function()? onSuccess, void Function()? onFailure]) {
-    logger.d('response received: status_code: $status_code, transaction_state: $state');
+    logger.d('response received: status_code: $status_code');
     if (status_code < 200) {
       switch (state) {
         case TransactionState.TRYING:
@@ -147,6 +152,7 @@ class UpdateClientTransaction extends TransactionBase {
         case TransactionState.PROCEEDING:
           stateChanged(TransactionState.COMPLETED);
           clearTimeout(F);
+          clearTimeout(R);
 
           if (status_code == 408) {
             _eventHandlers.emit(EventOnRequestTimeout());
