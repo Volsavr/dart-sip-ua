@@ -123,6 +123,7 @@ class UpdateClientTransaction extends TransactionBase {
   @override
   void receiveResponse(int status_code, IncomingMessage response,
       [void Function()? onSuccess, void Function()? onFailure]) {
+    logger.d('response received: status_code: $status_code, transaction_state: $state');
     if (status_code < 200) {
       switch (state) {
         case TransactionState.TRYING:
