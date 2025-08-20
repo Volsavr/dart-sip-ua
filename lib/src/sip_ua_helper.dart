@@ -26,11 +26,13 @@ import 'transports/tcp_socket.dart';
 import 'transports/web_socket.dart';
 import 'ua.dart';
 import 'utils.dart' as Utils;
+import 'package:flutter_webrtc/src/helper.dart';
 
 class SIPUAHelper extends EventManager {
   SIPUAHelper({Logger? customLogger}) {
     if (customLogger != null) {
       logger = customLogger;
+      Helper.setLogger(logger, 'verbose');
     }
   }
 
