@@ -104,7 +104,7 @@ class SIPUAWebSocketImpl {
             }
 
             if (webSocketSettings.allowBadCertificate) {
-              logger.w('Allow self-signed certificate => $host:$port. ');
+              logger.w('Allow certificate for $host:$port according to settings');
               return true;
             }
             else {
