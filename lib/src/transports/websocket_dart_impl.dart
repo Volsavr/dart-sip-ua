@@ -90,26 +90,27 @@ class SIPUAWebSocketImpl {
 
       client.badCertificateCallback =
           (X509Certificate cert, String host, int port) {
-        if(webSocketSettings.allowBadCertificate) {
-          logger.w('Allow self-signed certificate => $host:$port. ');
-          return true;
-        }
-        else if(webSocketSettings.debugCertificate){
-          logger.w('Server returns a server certificate that cannot be authenticated => $host:$port. ');
-          String certInfo = '\n';
-          certInfo+= ' Certificate subject: ${cert.subject}\n';
-          certInfo+= ' Certificate issuer: ${cert.issuer}\n';
-          certInfo+= ' Certificate valid from: ${cert.startValidity}\n';
-          certInfo+= ' Certificate valid to: ${cert.endValidity}\n';
-          certInfo+= ' Certificate SHA-1 fingerprint: ${cert.sha1}\n';
+            if (webSocketSettings.debugCertificate) {
+              logger.w(
+                  'Server returns a server certificate that cannot be authenticated => $host:$port. ');
+              String certInfo = '\n';
+              certInfo += ' Certificate subject: ${cert.subject}\n';
+              certInfo += ' Certificate issuer: ${cert.issuer}\n';
+              certInfo += ' Certificate valid from: ${cert.startValidity}\n';
+              certInfo += ' Certificate valid to: ${cert.endValidity}\n';
+              certInfo += ' Certificate SHA-1 fingerprint: ${cert.sha1}\n';
 
-          logger.w('Certificate details: {$certInfo}');
-          return false;
-        }
-        else{
-          return false; // reject the certificate
-        }
-      };
+              logger.w('Certificate details: {$certInfo}');
+            }
+
+            if (webSocketSettings.allowBadCertificate) {
+              logger.w('Allow self-signed certificate => $host:$port. ');
+              return true;
+            }
+            else {
+              return false; // reject the certificate
+            }
+          };
 
       Uri parsed_uri = Uri.parse(url);
       Uri uri = parsed_uri.replace(
