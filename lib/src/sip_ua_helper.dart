@@ -930,9 +930,6 @@ class UaSettings {
 
   Duration webSocketPingInterval = webSocketSettings.pingInterval;
 
-  /// Allows to write advanced call statistics in the log after the call ends
-  bool logCallStatistics = false;
-
   bool terminateOnMediaPortZero = false;
 
   /// Sip Message Delay (in millisecond) (default 0).
