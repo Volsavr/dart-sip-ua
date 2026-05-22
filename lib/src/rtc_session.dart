@@ -583,6 +583,150 @@ class RTCSession extends EventManager implements Owner {
   }
 
   /**
+   * Answer call using pre-gathered ICE connection (fast path).
+   * This method is called when ICE candidates were pre-gathered during ringing.
+   */
+  Future<void> _answerWithPreGatheredConnection({
+    required dynamic request,
+    required DateTime answerStartTime,
+    required Map<String, dynamic> rtcAnswerConstraints,
+    required MediaStream? mediaStream,
+    required Map<String, dynamic> mediaConstraints,
+    required List<dynamic> extraHeaders,
+    required String? sdpSemantics,
+  }) async {
+    logger.i('[TIMING] Pre-gather path: ${DateTime.now().difference(answerStartTime).inMilliseconds}ms from answer() start');
+    logger.i('Reusing pre-setup peer connection (remote description already set)');
+
+    // Always emit connecting state for user feedback (even on fast path)
+    _connecting(request);
+
+    // Move pre-gathered connection to main connection
+    _connection = _preGatherConnection;
+    _preGatherConnection = null;
+    _isPreGathering = false;
+    _preGatherTimeout?.cancel();
+
+    // Get user media
+    MediaStream? stream;
+    if (mediaStream != null) {
+      stream = mediaStream;
+      emit(EventStream(session: this, originator: Originator.local, stream: stream));
+    } else if (mediaConstraints['audio'] != null || mediaConstraints['video'] != null) {
+      _localMediaStreamLocallyGenerated = true;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(mediaConstraints);
+        emit(EventStream(session: this, originator: Originator.local, stream: stream));
+      } catch (error) {
+        if (_state == RtcSessionState.terminated) {
+          throw Exceptions.InvalidStateError('terminated');
+        }
+        request.reply(480);
+        _failed(Originator.local, null, null, null, 480,
+            DartSIP_C.CausesType.USER_DENIED_MEDIA_ACCESS, 'User Denied Media Access');
+        logger.e('emit "getusermediafailed" [error:${error.toString()}]');
+        emit(EventGetUserMediaFailed(exception: error));
+        throw Exceptions.InvalidStateError('getUserMedia() failed');
+      }
+    }
+
+    _localMediaStream = stream;
+
+    // Add tracks to existing peer connection
+    if (stream != null) {
+      logger.i('[TIMING] Before addTrack(): ${DateTime.now().difference(answerStartTime).inMilliseconds}ms from answer() start');
+      try {
+        switch (sdpSemantics) {
+          case 'unified-plan':
+            stream.getTracks().forEach((MediaStreamTrack track) async {
+              RTCRtpSender sender = await _connection!.addTrack(track, stream!);
+              _senders.add(sender);
+            });
+            logger.i('[TIMING] After addTrack(): ${DateTime.now().difference(answerStartTime).inMilliseconds}ms from answer() start');
+            logger.d('Added ${stream.getTracks().length} tracks to pre-setup connection');
+            break;
+          case 'plan-b':
+            _connection!.addStream(stream);
+            logger.d('Added stream to pre-setup connection (plan-b)');
+            break;
+          default:
+            logger.e('Unknown sdp semantics $sdpSemantics in pre-gathering path');
+            throw Exceptions.NotReadyError('Unknown sdp semantics $sdpSemantics');
+        }
+      } catch (e) {
+        logger.e('Failed to add tracks to pre-setup connection: $e');
+        // Clean up pre-setup connection and fall back to normal path
+        _cleanupPreGathering();
+        rethrow;
+      }
+    }
+
+    // Connection is in stable state after pre-gathering.
+    // Re-apply the remote offer to go back to "have-remote-offer" state
+    RTCSessionDescription desc;
+    try {
+      logger.i('[TIMING] Before setRemoteDescription(): ${DateTime.now().difference(answerStartTime).inMilliseconds}ms from answer() start');
+      logger.d('Re-applying remote offer to allow createAnswer()');
+      final String? remoteSDP = _sdpOfferToWebRTC(request.body);
+      final RTCSessionDescription offer = RTCSessionDescription(remoteSDP, 'offer');
+      await _connection!.setRemoteDescription(offer);
+      logger.i('[TIMING] After setRemoteDescription(): ${DateTime.now().difference(answerStartTime).inMilliseconds}ms from answer() start');
+
+      // Now in have-remote-offer state, we can create answer with media tracks
+      logger.i('[TIMING] Before createAnswer(): ${DateTime.now().difference(answerStartTime).inMilliseconds}ms from answer() start');
+      logger.d('Creating answer with pre-gathered connection and media tracks');
+      desc = await _connection!.createAnswer(rtcAnswerConstraints);
+      logger.i('[TIMING] After createAnswer(): ${DateTime.now().difference(answerStartTime).inMilliseconds}ms from answer() start');
+
+      // The new answer will include:
+      // 1. Media tracks we just added
+      // 2. Pre-gathered ICE candidates (they're cached in the connection)
+      logger.i('[TIMING] Before setLocalDescription(): ${DateTime.now().difference(answerStartTime).inMilliseconds}ms from answer() start');
+      await _connection!.setLocalDescription(desc);
+      logger.i('[TIMING] After setLocalDescription(): ${DateTime.now().difference(answerStartTime).inMilliseconds}ms from answer() start');
+
+      logger.i('Answer created with pre-gathered ICE candidates and media tracks');
+    } catch (e) {
+      logger.e('Failed to create answer with pre-gathered connection: $e');
+      request.reply(500);
+      throw Exceptions.TypeError('createAnswer() failed with pre-gathering: $e');
+    }
+
+    if (_state == RtcSessionState.terminated) {
+      throw Exceptions.InvalidStateError('terminated');
+    }
+
+    logger.d('emit "sdp"');
+    emit(EventSdp(originator: Originator.local, type: SdpType.answer, sdp: desc.sdp));
+
+    // Send 200 OK (connection was pre-setup for faster accept)
+    try {
+      _handleSessionTimersInIncomingRequest(request, extraHeaders);
+      logger.i('[TIMING] Before sending 200 OK: ${DateTime.now().difference(answerStartTime).inMilliseconds}ms from answer() start');
+      logger.d('Sending 200 OK with pre-setup connection');
+      request.reply(200, null, extraHeaders, desc.sdp, () {
+        logger.i('[TIMING] 200 OK sent successfully: ${DateTime.now().difference(answerStartTime).inMilliseconds}ms from answer() start');
+        _state = RtcSessionState.waitingForAck;
+        _setInvite2xxTimer(request, desc.sdp);
+        _setACKTimer();
+        _accepted(Originator.local);
+        logger.i('Call accepted successfully using pre-setup connection');
+      }, () {
+        logger.e('Transport error when sending 200 OK');
+        _failed(Originator.system, null, null, null, 500,
+            DartSIP_C.CausesType.CONNECTION_ERROR, 'Transport Error');
+      });
+    } catch (error, s) {
+      if (_state == RtcSessionState.terminated) {
+        logger.d('Session already terminated, ignoring answer error');
+        return;
+      }
+      logger.e('Failed to send 200 OK with pre-setup connection: ${error.toString()}',
+          error: error, stackTrace: s);
+    }
+  }
+
+  /**
    * Answer the call.
    */
   void answer(Map<String, dynamic> options) async {
@@ -717,136 +861,15 @@ class RTCSession extends EventManager implements Owner {
 
     // Check if we have pre-setup connection (fast path for incoming calls)
     if (_preGatherConnection != null && _isPreGathering) {
-      logger.i('[TIMING] Pre-gather path: ${DateTime.now().difference(answerStartTime).inMilliseconds}ms from answer() start');
-      logger.i('Reusing pre-setup peer connection (remote description already set)');
-
-      // Always emit connecting state for user feedback (even on fast path)
-      _connecting(request);
-
-      // Move pre-gathered connection to main connection
-      _connection = _preGatherConnection;
-      _preGatherConnection = null;
-      _isPreGathering = false;
-      _preGatherTimeout?.cancel();
-
-      // Get user media
-      MediaStream? stream;
-      if (mediaStream != null) {
-        stream = mediaStream;
-        emit(EventStream(session: this, originator: Originator.local, stream: stream));
-      } else if (mediaConstraints['audio'] != null || mediaConstraints['video'] != null) {
-        _localMediaStreamLocallyGenerated = true;
-        try {
-          stream = await navigator.mediaDevices.getUserMedia(mediaConstraints);
-          emit(EventStream(session: this, originator: Originator.local, stream: stream));
-        } catch (error) {
-          if (_state == RtcSessionState.terminated) {
-            throw Exceptions.InvalidStateError('terminated');
-          }
-          request.reply(480);
-          _failed(Originator.local, null, null, null, 480,
-              DartSIP_C.CausesType.USER_DENIED_MEDIA_ACCESS, 'User Denied Media Access');
-          logger.e('emit "getusermediafailed" [error:${error.toString()}]');
-          emit(EventGetUserMediaFailed(exception: error));
-          throw Exceptions.InvalidStateError('getUserMedia() failed');
-        }
-      }
-
-      _localMediaStream = stream;
-
-      // Add tracks to existing peer connection
-      if (stream != null) {
-        logger.i('[TIMING] Before addTrack(): ${DateTime.now().difference(answerStartTime).inMilliseconds}ms from answer() start');
-        try {
-          switch (sdpSemantics) {
-            case 'unified-plan':
-              stream.getTracks().forEach((MediaStreamTrack track) async {
-                RTCRtpSender sender = await _connection!.addTrack(track, stream!);
-                _senders.add(sender);
-              });
-              logger.i('[TIMING] After addTrack(): ${DateTime.now().difference(answerStartTime).inMilliseconds}ms from answer() start');
-              logger.d('Added ${stream.getTracks().length} tracks to pre-setup connection');
-              break;
-            case 'plan-b':
-              _connection!.addStream(stream);
-              logger.d('Added stream to pre-setup connection (plan-b)');
-              break;
-            default:
-              logger.e('Unknown sdp semantics $sdpSemantics in pre-gathering path');
-              throw Exceptions.NotReadyError('Unknown sdp semantics $sdpSemantics');
-          }
-        } catch (e) {
-          logger.e('Failed to add tracks to pre-setup connection: $e');
-          // Clean up pre-setup connection and fall back to normal path
-          _cleanupPreGathering();
-          rethrow;
-        }
-      }
-
-      // Connection is in stable state after pre-gathering.
-      // Re-apply the remote offer to go back to "have-remote-offer" state
-      RTCSessionDescription desc;
-      try {
-        logger.i('[TIMING] Before setRemoteDescription(): ${DateTime.now().difference(answerStartTime).inMilliseconds}ms from answer() start');
-        logger.d('Re-applying remote offer to allow createAnswer()');
-        final String? remoteSDP = _sdpOfferToWebRTC(request.body);
-        final RTCSessionDescription offer = RTCSessionDescription(remoteSDP, 'offer');
-        await _connection!.setRemoteDescription(offer);
-        logger.i('[TIMING] After setRemoteDescription(): ${DateTime.now().difference(answerStartTime).inMilliseconds}ms from answer() start');
-
-        // Now in have-remote-offer state, we can create answer with media tracks
-        logger.i('[TIMING] Before createAnswer(): ${DateTime.now().difference(answerStartTime).inMilliseconds}ms from answer() start');
-        logger.d('Creating answer with pre-gathered connection and media tracks');
-        desc = await _connection!.createAnswer(rtcAnswerConstraints);
-        logger.i('[TIMING] After createAnswer(): ${DateTime.now().difference(answerStartTime).inMilliseconds}ms from answer() start');
-
-        // The new answer will include:
-        // 1. Media tracks we just added
-        // 2. Pre-gathered ICE candidates (they're cached in the connection)
-        logger.i('[TIMING] Before setLocalDescription(): ${DateTime.now().difference(answerStartTime).inMilliseconds}ms from answer() start');
-        await _connection!.setLocalDescription(desc);
-        logger.i('[TIMING] After setLocalDescription(): ${DateTime.now().difference(answerStartTime).inMilliseconds}ms from answer() start');
-
-        logger.i('Answer created with pre-gathered ICE candidates and media tracks');
-      } catch (e) {
-        logger.e('Failed to create answer with pre-gathered connection: $e');
-        request.reply(500);
-        throw Exceptions.TypeError('createAnswer() failed with pre-gathering: $e');
-      }
-
-      if (_state == RtcSessionState.terminated) {
-        throw Exceptions.InvalidStateError('terminated');
-      }
-
-      logger.d('emit "sdp"');
-      emit(EventSdp(originator: Originator.local, type: SdpType.answer, sdp: desc.sdp));
-
-      // Send 200 OK (connection was pre-setup for faster accept)
-      try {
-        _handleSessionTimersInIncomingRequest(request, extraHeaders);
-        logger.i('[TIMING] Before sending 200 OK: ${DateTime.now().difference(answerStartTime).inMilliseconds}ms from answer() start');
-        logger.d('Sending 200 OK with pre-setup connection');
-        request.reply(200, null, extraHeaders, desc.sdp, () {
-          logger.i('[TIMING] 200 OK sent successfully: ${DateTime.now().difference(answerStartTime).inMilliseconds}ms from answer() start');
-          _state = RtcSessionState.waitingForAck;
-          _setInvite2xxTimer(request, desc.sdp);
-          _setACKTimer();
-          _accepted(Originator.local);
-          logger.i('Call accepted successfully using pre-setup connection');
-        }, () {
-          logger.e('Transport error when sending 200 OK');
-          _failed(Originator.system, null, null, null, 500,
-              DartSIP_C.CausesType.CONNECTION_ERROR, 'Transport Error');
-        });
-      } catch (error, s) {
-        if (_state == RtcSessionState.terminated) {
-          logger.d('Session already terminated, ignoring answer error');
-          return;
-        }
-        logger.e('Failed to send 200 OK with pre-setup connection: ${error.toString()}',
-            error: error, stackTrace: s);
-      }
-
+      await _answerWithPreGatheredConnection(
+        request: request,
+        answerStartTime: answerStartTime,
+        rtcAnswerConstraints: rtcAnswerConstraints,
+        mediaStream: mediaStream,
+        mediaConstraints: mediaConstraints,
+        extraHeaders: extraHeaders,
+        sdpSemantics: sdpSemantics,
+      );
       return; // Exit early - pre-gathering path complete
     }
 
