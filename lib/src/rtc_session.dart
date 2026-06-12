@@ -607,6 +607,9 @@ class RTCSession extends EventManager implements Owner {
     _isPreGathering = false;
     _preGatherTimeout?.cancel();
 
+    // PHAP-331: Setup connection event handlers (same as _createRTCConnection)
+    _setupConnectionEventHandlers(sdpSemantics);
+
     // Get user media
     MediaStream? stream;
     if (mediaStream != null) {
@@ -698,6 +701,10 @@ class RTCSession extends EventManager implements Owner {
 
     logger.d('emit "sdp"');
     emit(EventSdp(originator: Originator.local, type: SdpType.answer, sdp: desc.sdp));
+
+    // Set ICE gathering state to complete since pre-gathering already completed ICE gathering.
+    // This ensures _createLocalDescription() works correctly for subsequent re-INVITEs (hold/unhold).
+    _iceGatheringState = RTCIceGatheringState.RTCIceGatheringStateComplete;
 
     // Send 200 OK (connection was pre-setup for faster accept)
     try {
@@ -1957,9 +1964,9 @@ class RTCSession extends EventManager implements Owner {
     renegotiate(options: offerConstraints);
   }
 
-  Future<void> _createRTCConnection(Map<String, dynamic> pcConfig,
-      Map<String, dynamic> rtcConstraints) async {
-    _connection = await createPeerConnection(pcConfig, rtcConstraints);
+  /// Setup connection event handlers for hold/unhold and ICE state management.
+  /// PHAP-331: Extracted to be reusable for pre-gathered connections.
+  void _setupConnectionEventHandlers(String? sdpSemantics) {
     _connection!.onIceConnectionState = (RTCIceConnectionState state) {
       if (_state == RtcSessionState.terminated ||
           _state == RtcSessionState.canceled) {
@@ -2036,12 +2043,8 @@ class RTCSession extends EventManager implements Owner {
         logger.d('ICE Connection State: $state.'); // Use logger.d
       }
     };
-    // In future versions, unified-plan will be used by default
-    String? sdpSemantics = 'unified-plan';
-    if (pcConfig['sdpSemantics'] != null) {
-      sdpSemantics = pcConfig['sdpSemantics'];
-    }
 
+    // In future versions, unified-plan will be used by default
     switch (sdpSemantics) {
       case 'unified-plan':
         _connection!.onTrack = (RTCTrackEvent event) {
@@ -2063,7 +2066,21 @@ class RTCSession extends EventManager implements Owner {
 
     logger.d('emit "peerconnection"');
     emit(EventPeerConnection(_connection));
-    return;
+  }
+
+
+  Future<void> _createRTCConnection(Map<String, dynamic> pcConfig,
+      Map<String, dynamic> rtcConstraints) async {
+    _connection = await createPeerConnection(pcConfig, rtcConstraints);
+
+    // Extract sdpSemantics from config (unified-plan is default)
+    String? sdpSemantics = 'unified-plan';
+    if (pcConfig['sdpSemantics'] != null) {
+      sdpSemantics = pcConfig['sdpSemantics'];
+    }
+
+    // PHAP-331: Use shared method for event handler setup
+    _setupConnectionEventHandlers(sdpSemantics);
   }
 
   Future<RTCSessionDescription> _createLocalDescription(
