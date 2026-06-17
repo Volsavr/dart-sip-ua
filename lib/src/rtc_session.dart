@@ -2152,19 +2152,24 @@ class RTCSession extends EventManager implements Owner {
       }
     }
 
+    // ICE gathering state callback - monitors the overall gathering process
+    // States: new -> gathering -> complete
+    // This is the recommended way to detect gathering completion per WebRTC spec
     _connection!.onIceGatheringState = (RTCIceGatheringState state) {
+      logger.i('[ICE-GATHER] onIceGatheringState: $state (previous: $_iceGatheringState)');
       _iceGatheringState = state;
       if (state == RTCIceGatheringState.RTCIceGatheringStateComplete) {
+        logger.i('[ICE-GATHER] Gathering complete via onIceGatheringState callback');
         ready();
       }
     };
 
 
     bool hasCandidate = false;
+    // ICE candidate callback - receives individual candidates during gathering
     _connection!.onIceCandidate = (RTCIceCandidate candidate) {
-      if (candidate != null) {
         String candidateContent = candidate.candidate ?? '';
-        logger.d('ice candidate: "$candidateContent"');
+        logger.d('[ICE-GATHER] onIceCandidate: "$candidateContent"');
 
         //notify about candidate
         emit(EventIceCandidate(candidate, ready));
@@ -2172,6 +2177,7 @@ class RTCSession extends EventManager implements Owner {
         //check ice srflx candidate policy
         if(ua.configuration.ice_srflx_candidate_policy &&
             candidateContent.contains("srflx")){
+          logger.i('[ICE-GATHER] srflx candidate found, triggering ready()');
           ready();
         }
 
@@ -2185,12 +2191,11 @@ class RTCSession extends EventManager implements Owner {
            */
           if (ua.configuration.ice_gathering_timeout != 0) {
             setTimeout(() {
-              logger.d('ice gathering timeout (${ua.configuration.ice_gathering_timeout}) exceeded');
+              logger.d('[ICE-GATHER] ice gathering timeout (${ua.configuration.ice_gathering_timeout}) exceeded');
               ready();
             }, ua.configuration.ice_gathering_timeout);
           }
         }
-      }
     };
 
     try {
