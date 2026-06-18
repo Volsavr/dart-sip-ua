@@ -492,49 +492,65 @@ class RTCSession extends EventManager implements Owner {
    */
   Future<void> preGatherICECandidates({
     required Map<String, dynamic> pcConfig,
-    Map<String, dynamic>? rtcConstraints,
-    int timeoutMs = 2000, // Not used anymore, kept for API compatibility
+    Map<String, dynamic>? rtcConstraints
   }) async {
     if (_state != RtcSessionState.waitingForAnswer) {
-      logger.w('preGatherICECandidates() called in wrong state: $_state');
+      logger.w('[ICE-GATHER] preGatherICECandidates() called in wrong state: $_state');
       return;
     }
 
     if (_preGatherConnection != null) {
-      logger.w('preGatherICECandidates() already in progress');
+      logger.w('[ICE-GATHER] preGatherICECandidates() already in progress');
       return;
     }
 
-    logger.i('Starting ICE pre-gathering for incoming call (timeout: ${timeoutMs}ms)');
+    logger.i('[ICE-GATHER] Starting ICE pre-gathering for incoming call (timeout: ${ua.configuration.ice_gathering_timeout}ms)');
     _isPreGathering = true;
     _preGatherCompleter = Completer<List<RTCIceCandidate>>();
     _preGatheredCandidates = <RTCIceCandidate>[];
-
-    // Setup timeout protection
-    _preGatherTimeout = Timer(Duration(milliseconds: timeoutMs), () {
-      if (_isPreGathering && !_preGatherCompleter!.isCompleted) {
-        logger.w('ICE pre-gathering timeout after ${timeoutMs}ms with ${_preGatheredCandidates.length} candidates');
-        _preGatherCompleter?.complete(_preGatheredCandidates);
-      }
-    });
 
     try {
       // Create temporary peer connection for ICE gathering
       rtcConstraints ??= <String, dynamic>{};
       _preGatherConnection = await createPeerConnection(pcConfig, rtcConstraints);
 
-      // Setup ICE candidate collector
-      _preGatherConnection!.onIceCandidate = (RTCIceCandidate? candidate) {
-        if (candidate != null) {
-          logger.d('Pre-gathered ICE candidate: ${candidate.candidate}');
-          _preGatheredCandidates.add(candidate);
-        } else {
-          // null candidate signals gathering complete
-          logger.i('ICE pre-gathering complete: ${_preGatheredCandidates.length} candidates');
-          if (!_preGatherCompleter!.isCompleted) {
+      bool hasCandidate = false;
+      // ICE candidate callback - receives individual candidates during gathering
+      _preGatherConnection!.onIceCandidate = (RTCIceCandidate candidate) {
+        String candidateContent = candidate.candidate ?? '';
+        logger.d('[ICE-GATHER] Pre-gathered ICE candidate: "$candidateContent"');
+
+        _preGatheredCandidates.add(candidate);
+
+        //check ice srflx candidate policy
+        if(ua.configuration.ice_srflx_candidate_policy &&
+            candidateContent.contains("srflx")){
+          logger.i('[ICE-GATHER] srflx candidate found, triggering ready()');
+          _preGatherCompleter?.complete(_preGatheredCandidates);
+        }
+
+        if (!hasCandidate) {
+          hasCandidate = true;
+          /**
+           *  Just wait for 0.5 seconds. In the case of multiple network connections,
+           *  the RTCIceGatheringStateComplete event needs to wait for 10 ~ 30 seconds.
+           *  Because trickle ICE is not defined in the sip protocol, the delay of
+           * initiating a call to answer the call waiting will be unacceptable.
+           */
+          if (ua.configuration.ice_gathering_timeout != 0) {
+
+            // Setup timeout protection
+            _preGatherTimeout = Timer(Duration(milliseconds: ua.configuration.ice_gathering_timeout), () {
+              if (_isPreGathering && !_preGatherCompleter!.isCompleted) {
+                logger.w('[ICE-GATHER] ICE pre-gathering timeout after ${ua.configuration.ice_gathering_timeout}ms with ${_preGatheredCandidates.length} candidates');
+                _preGatherCompleter?.complete(_preGatheredCandidates);
+              }
+            });
+          }
+          else{
+            logger.w('[ICE-GATHER] ICE pre-gathering completed with ${_preGatheredCandidates.length} candidates');
             _preGatherCompleter?.complete(_preGatheredCandidates);
           }
-          _preGatherTimeout?.cancel();
         }
       };
 
