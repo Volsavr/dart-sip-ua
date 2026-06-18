@@ -525,7 +525,7 @@ class RTCSession extends EventManager implements Owner {
         //check ice srflx candidate policy
         if(ua.configuration.ice_srflx_candidate_policy &&
             candidateContent.contains("srflx")){
-          logger.i('[ICE-GATHER] srflx candidate found, triggering ready()');
+          logger.i('[ICE-GATHER] srflx candidate found, ICE pre-gathering completed with ${_preGatheredCandidates.length} candidates');
           _preGatherCompleter?.complete(_preGatheredCandidates);
         }
 
@@ -2193,7 +2193,7 @@ class RTCSession extends EventManager implements Owner {
         //check ice srflx candidate policy
         if(ua.configuration.ice_srflx_candidate_policy &&
             candidateContent.contains("srflx")){
-          logger.i('[ICE-GATHER] srflx candidate found, triggering ready()');
+          logger.i('[ICE-GATHER] srflx candidate found, ICE pre-gathering completed');
           ready();
         }
 
@@ -2207,7 +2207,7 @@ class RTCSession extends EventManager implements Owner {
            */
           if (ua.configuration.ice_gathering_timeout != 0) {
             setTimeout(() {
-              logger.d('[ICE-GATHER] ice gathering timeout (${ua.configuration.ice_gathering_timeout}) exceeded');
+              logger.d('[ICE-GATHER] ice gathering timeout (${ua.configuration.ice_gathering_timeout}) exceeded, ICE pre-gathering completed');
               ready();
             }, ua.configuration.ice_gathering_timeout);
           }
