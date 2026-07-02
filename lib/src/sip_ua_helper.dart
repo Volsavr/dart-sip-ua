@@ -357,6 +357,10 @@ class SIPUAHelper extends EventManager {
       logger.d('Reinvite received in helper, notifying listeners');
       _notifyReInviteListeners(event);
     });
+    handlers.on(EventNewInfo(), (EventNewInfo event) {
+      logger.d('Info received in helper, notifying listeners');
+      _notifyInfoListeners(event);
+    });
     handlers.on(EventCallRefer(), (EventCallRefer refer) async {
       logger.d('Refer received, Transfer current call to => ${refer.aor}');
       _notifyCallStateListeners(
@@ -520,6 +524,18 @@ class SIPUAHelper extends EventManager {
     List<SipUaHelperListener> listeners = _sipUaHelperListeners.toList();
     for (SipUaHelperListener listener in listeners) {
       listener.onNewNotify(Notify(request: event.request));
+    }
+  }
+
+  void _notifyInfoListeners(EventNewInfo event) {
+    // Copy to prevent concurrent modification exception
+    List<SipUaHelperListener> listeners = _sipUaHelperListeners.toList();
+    for (SipUaHelperListener listener in listeners) {
+      listener.onNewInfo(InfoEvent(
+        contentType: event.info?.contentType,
+        body: event.info?.body,
+        request: event.request as IncomingRequest?,
+      ));
     }
   }
 }
@@ -777,10 +793,18 @@ abstract class SipUaHelperListener {
   void onNewMessage(SIPMessageRequest msg);
   void onNewNotify(Notify ntf);
   void onNewReinvite(ReInvite event);
+  void onNewInfo(InfoEvent event);
 }
 
 class Notify {
   Notify({this.request});
+  IncomingRequest? request;
+}
+
+class InfoEvent {
+  InfoEvent({this.contentType, this.body, this.request});
+  String? contentType;
+  String? body;
   IncomingRequest? request;
 }
 
